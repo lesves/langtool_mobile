@@ -95,7 +95,7 @@ class LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                widget.message == null ? const SizedBox.shrink() : Text(widget.message!),
+                widget.message == null ? const SizedBox.shrink() : Text(widget.message!, style: style.copyWith(color: CupertinoColors.systemRed)),
                 const SizedBox(height: 10),
                 CupertinoTextField(
                   placeholder: "Username",
@@ -115,12 +115,125 @@ class LoginScreenState extends State<LoginScreen> {
                     widget.onSubmit(_usernameController.text, _passwordController.text);
                   },
                 ),
+                const SizedBox(height: 10),
+                CupertinoButton(
+                  child: const Text("Register"),
+                  onPressed: () {
+                    Navigator.of(context).push(CupertinoPageRoute(builder: (context) => const RegisterScreen()));
+                  },
+                )
               ],
             )),
             Expanded(flex: 2, child: Container(),),
           ],
         ),
       ),
+    );
+  }
+}
+
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
+  
+  @override
+  State<RegisterScreen> createState() => RegisterScreenState();
+}
+class RegisterScreenState extends State<RegisterScreen> {
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _passwordRepeatController = TextEditingController();
+  String? message;
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    _passwordRepeatController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = CupertinoTheme.of(context).textTheme.textStyle;
+
+    return Mutation(
+      options: MutationOptions(
+        document: gql(r"""
+mutation ($username: String!, $password1: String!, $password2: String!) {
+  register(data: {username: $username, password1: $password1, password2: $password2}) {
+    username
+  }
+}"""),
+        onCompleted: (resultData) {
+          if (resultData != null) {
+            Navigator.of(context).pop();
+          }
+        },
+        onError: (error) {
+          if (error != null && error.graphqlErrors.isNotEmpty) {
+            setState(() {
+              message = error.graphqlErrors[0].message;
+            });
+          }
+        },
+      ),
+      builder: (runMutation, result) {
+        return CupertinoPageScaffold(
+          navigationBar: const CupertinoNavigationBar(
+            middle: Text("$appName: Register"),
+          ),
+          child: SafeArea(
+            child: Row(
+              children: [
+                Expanded(flex: 2, child: Container(),),
+                Expanded(flex: 8, child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    message == null ? const SizedBox.shrink() : Text(message!, style: style.copyWith(color: CupertinoColors.systemRed)),
+                    const SizedBox(height: 10),
+                    CupertinoTextField(
+                      placeholder: "Username",
+                      autocorrect: false,
+                      controller: _usernameController,
+                    ),
+                    const SizedBox(height: 10),
+                    CupertinoTextField(
+                      placeholder: "Password",
+                      obscureText: true,
+                      controller: _passwordController,
+                    ),
+                    const SizedBox(height: 10),
+                    CupertinoTextField(
+                      placeholder: "Repeat password",
+                      obscureText: true,
+                      controller: _passwordRepeatController,
+                    ),
+                    const SizedBox(height: 10),
+                    CupertinoButton.filled(
+                      child: Text("Register", style: style),
+                      onPressed: () {
+                        if (_passwordRepeatController.text != "" && _passwordController.text != "" && _usernameController.text != "") {
+                          runMutation({
+                            "username": _usernameController.text, 
+                            "password1": _passwordController.text,
+                            "password2": _passwordRepeatController.text,
+                          });
+                        } else {
+                          setState(() {
+                            message = "Please fill in all required fields.";
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                )),
+                Expanded(flex: 2, child: Container(),),
+              ],
+            ),
+          ),
+        );
+      }
     );
   }
 }
@@ -182,12 +295,15 @@ class AuthenticationState extends State<Authentication> {
           options: MutationOptions(
             document: gql(r"""
 mutation ($username: String!, $password: String!) {
-tokenAuth(username: $username, password: $password)
+  tokenAuth(username: $username, password: $password)
 }
             """),
             onCompleted: (dynamic resultData) async {
               setState(() {
-                if (resultData?["tokenAuth"] == null) {
+                if (resultData == null) {
+                  message = "Login failed, please try again later";
+                }
+                else if (resultData?["tokenAuth"] == null) {
                   message = "Invalid username or password";
                 }
                 token = resultData?["tokenAuth"];

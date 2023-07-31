@@ -1,73 +1,20 @@
 import 'package:flutter/cupertino.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:langtool_mobile/stats.dart';
 import 'package:text_to_speech/text_to_speech.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'constants.dart';
-import 'utils.dart'; 
+import 'langs.dart';
+import 'utils.dart';
+import 'gql.dart';
 
-const getTasksGraphQL = r"""
-query getTasks($num_queue: Int! = 10, $num_new: Int! = 10, $audio: Boolean! = false) {
-  queue: progresses(order: {
-    prediction: ASC
-  }, filters: {
-    task: {
-      sentence: {
-        hasAudio: $audio
-      }
-    }
-  }, pagination: {
-    limit: $num_queue,
-  }) {
-    task {
-    	...Exercise
-  	}
-  },
-  new: tasks(filters: {
-    new: true,
-  	sentence: {
-      hasAudio: $audio
-    }
-  }, pagination: {
-    limit: $num_new
-  }) {
-    ...Exercise
-  }
-}
-
-fragment Exercise on Task {
-  id
-  before
-  after
-  correct
-
-  sentence {
-    text
-    translations {
-      text
-    }
-    audio {
-      url
-    }
-  }
-}
-""";
-const attemptTaskGraphQL = r"""
-mutation attemptTask($id: ID!, $success: Boolean!) {
-  attempt(id: $id, success: $success) {
-    lastReview
-    scheduledReview
-  }
-}
-""";
-
-const numQueue = 10;
-const numNew = 5;
+const numQueue = 15;
 
 List<dynamic> getQueue(Map<String, dynamic> data) {
   List queue = data["queue"].map((x) => x["task"]).toList() ?? [];
   List newTasks = data["new"] ?? [];
 
-  queue.addAll(newTasks);
+  queue.addAll(newTasks.sublist(0, numQueue-queue.length));
   return queue;
 }
 
@@ -78,6 +25,8 @@ class LessonScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final time = DateTime.now().toIso8601String();
+
     return Mutation(
       options: MutationOptions(
         document: gql(attemptTaskGraphQL),
@@ -87,7 +36,8 @@ class LessonScreen extends StatelessWidget {
         options: QueryOptions(
           document: gql(getTasksGraphQL),
           variables: {
-            "num_new": numNew,
+            "now": time,
+            "num_new": numQueue,
             "num_queue": numQueue,
             "audio": audio,
           },
@@ -137,6 +87,8 @@ enum SubmitState {
 }
 
 class LearnState extends State<LearnWidget> {
+  final List<bool> _results = [];
+
   int _current = 0;
   bool _correctPrefix = true;
   SubmitState _state = SubmitState.inputting;
@@ -158,13 +110,17 @@ class LearnState extends State<LearnWidget> {
     setState(() {
       _state = answeredCorrectly ? SubmitState.correct : SubmitState.incorrect;
     });
-    widget.tts.setLanguage("ru");
-    widget.tts.speak(task()["sentence"]["text"]);
+    if (task()["sentence"]["audio"] == null) {
+      widget.tts.setLanguage("ru");
+      widget.tts.speak(task()["sentence"]["text"]);
+    }
+    _results.add(answeredCorrectly);
   }
 
   void next() {
     if (isLast()) {
       Navigator.of(context).pop();
+      Navigator.of(context).push(CupertinoPageRoute(builder: (context) => StatsScreen(tasks: widget.queue, results: _results)));
       return;
     }
 
@@ -183,8 +139,8 @@ class LearnState extends State<LearnWidget> {
       if (_state != SubmitState.inputting) {
         return;
       }
-      final String input = _controller.text.toLowerCase();
-      final String correct = task()["correct"].toLowerCase();
+      final String input = prepare(_controller.text);
+      final String correct = prepare(task()["correct"]);
 
       if (correct == input) {
         submit(true);
@@ -257,6 +213,7 @@ class LearnState extends State<LearnWidget> {
                 width: textPainter.size.width + 10 + fieldPaddingSize,
                 child: CupertinoTextField(
                   controller: _controller,
+                  onSubmitted:(value) => submit(false),
                   enabled: _state == SubmitState.inputting,
                   autofocus: true,
                   autocorrect: false,
