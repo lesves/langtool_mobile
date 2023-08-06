@@ -10,11 +10,59 @@ import 'gql.dart';
 
 const numQueue = 15;
 
-List<dynamic> getQueue(Map<String, dynamic> data) {
-  List queue = data["queue"].map((x) => x["task"]).toList() ?? [];
-  List newTasks = data["new"] ?? [];
+class Task {
+  late String id;
+  late String word;
 
-  queue.addAll(newTasks.sublist(0, numQueue-queue.length));
+  late String text;
+
+  late String before;
+  late String correct;
+  late String after;
+
+  late String? audio;
+
+  late List<String> translations;
+
+  Task.fromWord(Map<String, dynamic> data) {
+    id = data["id"];
+
+    word = data["text"];
+    text = data["sentence"]["text"];
+
+    int wordIdx = data["sentence"]["lemmas"].indexOf(word);
+
+    int hiddenStart = data["sentence"]["spans"][wordIdx][0];
+    int hiddenStop = data["sentence"]["spans"][wordIdx][1];
+
+    correct = text.substring(hiddenStart, hiddenStop);
+    before = text.substring(0, hiddenStart);
+    after = text.substring(hiddenStop);
+
+    audio = data["sentence"]["audio"]?["url"];
+
+    translations = data["sentence"]["translations"].map((x) => x["text"]).whereType<String>().toList();
+  }
+}
+
+List<Task> getQueue(Map<String, dynamic> data) {
+  if (data["queue"] == null || data["new"] == null) {
+    throw Exception("todo");
+  }
+
+  List<dynamic> rawQueue = data["queue"].where((x) => x["word"]["sentence"] != null).toList();
+  List<dynamic> rawNew = data["new"].where((x) => x["sentence"] != null).toList();
+
+  List<Task> queue = List.empty(growable: true);
+
+  for (Map<String, dynamic> progress in rawQueue) {
+    queue.add(Task.fromWord(progress["word"]));
+  }
+
+  for (Map<String, dynamic> data in rawNew) {
+    queue.add(Task.fromWord(data));
+  }
+
   return queue;
 }
 
@@ -29,19 +77,19 @@ class LessonScreen extends StatelessWidget {
 
     return Mutation(
       options: MutationOptions(
-        document: gql(attemptTaskGraphQL),
-        operationName: "attemptTask",
+        document: gql(attemptGraphQL),
+        operationName: "attempt",
       ),
       builder: (runMutation, result) => Query(
         options: QueryOptions(
-          document: gql(getTasksGraphQL),
+          document: gql(getWordsGraphQL),
           variables: {
             "now": time,
             "num_new": numQueue,
             "num_queue": numQueue,
             "audio": audio,
           },
-          operationName: "getTasks",
+          operationName: "getWords",
         ),
         builder: (result, {fetchMore, refetch}) {
           if (result.hasException) {
@@ -56,11 +104,16 @@ class LessonScreen extends StatelessWidget {
             return const ErrorScreen(message: "Error: Loading failed.");
           }
 
+          var queue = getQueue(result.data!);
+          if (queue.isEmpty) {
+            return const FinishScreen();
+          }
+
           return CupertinoPageScaffold(
             navigationBar: const CupertinoNavigationBar(
               middle: Text("Lesson"),
             ),
-            child: LearnWidget(queue: getQueue(result.data!), attemptTask: runMutation)
+            child: LearnWidget(queue: queue, attempt: runMutation)
           );
         }
       )
@@ -69,12 +122,12 @@ class LessonScreen extends StatelessWidget {
 }
 
 class LearnWidget extends StatefulWidget {
-  final List<dynamic> queue;
+  final List<Task> queue;
   final TextToSpeech tts = TextToSpeech();
   final AudioPlayer player = AudioPlayer();
-  final RunMutation attemptTask;
+  final RunMutation attempt;
 
-  LearnWidget({ super.key, required this.queue, required this.attemptTask });
+  LearnWidget({ super.key, required this.queue, required this.attempt });
 
   @override
   State<LearnWidget> createState() => LearnState();
@@ -94,7 +147,7 @@ class LearnState extends State<LearnWidget> {
   SubmitState _state = SubmitState.inputting;
   final TextEditingController _controller = TextEditingController();
 
-  Map<String, dynamic> task() {
+  Task task() {
     return widget.queue[_current];
   }
 
@@ -103,16 +156,16 @@ class LearnState extends State<LearnWidget> {
   }
 
   void submit(bool answeredCorrectly) {
-    widget.attemptTask({
-      "id": task()["id"],
+    widget.attempt({
+      "id": task().id,
       "success": answeredCorrectly,
     });
     setState(() {
       _state = answeredCorrectly ? SubmitState.correct : SubmitState.incorrect;
     });
-    if (task()["sentence"]["audio"] == null) {
+    if (task().audio == null) {
       widget.tts.setLanguage("ru");
-      widget.tts.speak(task()["sentence"]["text"]);
+      widget.tts.speak(task().text);
     }
     _results.add(answeredCorrectly);
   }
@@ -139,8 +192,8 @@ class LearnState extends State<LearnWidget> {
       if (_state != SubmitState.inputting) {
         return;
       }
-      final String input = prepare(_controller.text);
-      final String correct = prepare(task()["correct"]);
+      final String input = prepare(_controller.text, "ru");
+      final String correct = prepare(task().correct, "ru");
 
       if (correct == input) {
         submit(true);
@@ -169,11 +222,11 @@ class LearnState extends State<LearnWidget> {
         break;
       case SubmitState.incorrect:
         color = CupertinoColors.systemRed;
-        _controller.value = TextEditingValue(text: task()["correct"]);
+        _controller.value = TextEditingValue(text: task().correct);
         break;
       case SubmitState.correct:
         color = CupertinoTheme.of(context).textTheme.textStyle.color ?? CupertinoColors.black;
-        _controller.value = TextEditingValue(text: task()["correct"]);
+        _controller.value = TextEditingValue(text: task().correct);
         break;
     }
     final fieldStyle = CupertinoTheme.of(context).textTheme.textStyle.copyWith(
@@ -185,7 +238,7 @@ class LearnState extends State<LearnWidget> {
 
     final textPainter = TextPainter()
       ..text = TextSpan(
-        text: task()["correct"],
+        text: task().correct,
         style: fieldStyle,
       )
       ..textDirection = TextDirection.ltr
@@ -208,7 +261,7 @@ class LearnState extends State<LearnWidget> {
       child: Column(
         children: [
           Wrap(
-            children: wordText(task()["before"]) + [
+            children: wordText(task().before) + [
               SizedBox(
                 width: textPainter.size.width + 10 + fieldPaddingSize,
                 child: CupertinoTextField(
@@ -222,19 +275,21 @@ class LearnState extends State<LearnWidget> {
                   textAlign: TextAlign.center
                 ),
               ),
-            ] + wordText(task()["after"])
+            ] + wordText(task().after)
           ),
           Padding(
             padding: const EdgeInsets.only(top: 15, left: 16, right: 16),
             child: Column(
-              children: translationTexts(task()["sentence"]["translations"])
+              children: task().translations.map(
+                (t) => Text(t, style: CupertinoTheme.of(context).textTheme.textStyle)
+              ).toList()
             ),
           ),
-          if (task()["sentence"]["audio"] != null)
+          if (task().audio != null)
           CupertinoButton(
             child: const Icon(CupertinoIcons.volume_up),
             onPressed: () async {
-              final url = baseUrl + task()["sentence"]["audio"]["url"];
+              final url = baseUrl + task().audio!;
               await widget.player.play(UrlSource(url));
             }
           ),
@@ -264,13 +319,5 @@ class LearnState extends State<LearnWidget> {
       style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(fontFamily: "Lora", fontWeight: FontWeight.w700, fontSize: 30),
       textAlign: TextAlign.center, 
     ) as Widget).toList();
-  }
-
-  List<Widget> translationTexts(List<dynamic> translations) {
-    List<Widget> res = [];
-    for (var t in translations) {
-      res.add(Text(t["text"], style: CupertinoTheme.of(context).textTheme.textStyle));
-    }
-    return res;
   }
 }

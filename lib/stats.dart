@@ -18,7 +18,12 @@ class StatsScreen extends StatelessWidget {
             leading: results[index] ? 
               const Icon(CupertinoIcons.checkmark, color: CupertinoColors.systemGreen) :
               const Icon(CupertinoIcons.xmark, color: CupertinoColors.systemRed),
-            title: Text(tasks[index]["sentence"]["text"], style: CupertinoTheme.of(context).textTheme.textStyle),
+            title: Text(tasks[index].text, style: CupertinoTheme.of(context).textTheme.textStyle),
+            trailing: Text(tasks[index].word, 
+              style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
+                color: results[index] ? CupertinoColors.systemGreen : CupertinoColors.systemRed,
+              )
+            ),
           )
         ),
       ),

@@ -1,43 +1,28 @@
-const getTasksGraphQL = r"""
-query getTasks($now: DateTime!, $num_queue: Int! = 10, $num_new: Int! = 10, $audio: Boolean! = false) {
-  queue: progresses(order: {
-    prediction: ASC
-  }, filters: {
-    task: {
-      sentence: {
-        hasAudio: $audio
-      }
-    },
-    scheduledReview: {
-      lt: $now,
+const getWordsGraphQL = r"""
+query getWords($now: DateTime!, $num_queue: Int! = 10, $num_new: Int! = 10, $audio: Boolean! = false) {
+  queue: progresses(
+    order: {prediction: ASC}
+    filters: {scheduledReview: {lt: $now}}
+    pagination: {limit: $num_queue}
+  ) {
+    scheduledReview
+    word {
+			...Exercise
     }
-  }, pagination: {
-    limit: $num_queue,
-  }) {
-    task {
-    	...Exercise
-  	}
-  },
-  new: tasks(filters: {
-    new: true,
-  	sentence: {
-      hasAudio: $audio
-    }
-  }, pagination: {
-    limit: $num_new
-  }) {
+  }
+  new: words(filters: {new: true}, pagination: {limit: $num_new}) {
     ...Exercise
   }
 }
 
-fragment Exercise on Task {
+fragment Exercise on Word {
   id
-  before
-  after
-  correct
-
-  sentence {
+  text
+  sentence: randomSentence(filters: {hasAudio: $audio}) {
     text
+    tokens
+    lemmas
+    spans
     translations {
       text
     }
@@ -47,8 +32,8 @@ fragment Exercise on Task {
   }
 }
 """;
-const attemptTaskGraphQL = r"""
-mutation attemptTask($id: ID!, $success: Boolean!) {
+const attemptGraphQL = r"""
+mutation attempt($id: ID!, $success: Boolean!) {
   attempt(id: $id, success: $success) {
     lastReview
     scheduledReview
