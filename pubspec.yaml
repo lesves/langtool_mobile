@@ -39,6 +39,7 @@ dependencies:
   text_to_speech: ^0.2.3
   audioplayers: ^4.0.1
   shared_preferences: ^2.1.0
+  flutter_phoenix: "^1.0.0"
 
 dev_dependencies:
   flutter_test:

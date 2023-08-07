@@ -1,4 +1,6 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_phoenix/flutter_phoenix.dart';
+
 
 class LoadingScreen extends StatelessWidget {
   const LoadingScreen({super.key});
@@ -27,10 +29,23 @@ class ErrorScreen extends StatelessWidget {
       navigationBar: const CupertinoNavigationBar(
         middle: Text("An error has occured"),
       ),
-      child: SafeArea(child: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: Text(message, style: CupertinoTheme.of(context).textTheme.textStyle),
-      ))
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: ListView(
+            scrollDirection: Axis.vertical,
+            children: [
+              Text(message, style: CupertinoTheme.of(context).textTheme.textStyle),
+              CupertinoButton(
+                child: const Text("Reload"), 
+                onPressed: () {
+                  Phoenix.rebirth(context);
+                }
+              )
+            ]
+          )
+        )
+      )
     );
   }
 }

@@ -1,6 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:langtool_mobile/utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_phoenix/flutter_phoenix.dart';
+import 'choosecourse.dart';
 import 'constants.dart';
 import 'lesson.dart';
 
@@ -11,49 +14,99 @@ class MainScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text(appName),
+    return Query(
+      options: QueryOptions(
+        document: gql(r"""
+{
+  me {
+    course {
+      id
+      known {
+        code
+      }
+      learning {
+        code
+      }
+    }
+  }
+}
+"""),
       ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 300,
-              child: CupertinoButton.filled(
-                child: const Text("Start lesson"),
-                onPressed: () {
-                  Navigator.of(context).push(CupertinoPageRoute(
-                    builder: (context) => const LessonScreen(),
-                  ));
-                },
-              ),
+      builder: (result, {fetchMore, refetch}) {
+        if (result.data == null) {
+          if (result.isLoading) {
+            return const LoadingScreen();
+          } else if (result.hasException) {
+            return ErrorScreen(message: "Could not load course information. Please check your internet connection.\n\n${result.exception.toString()}");
+          }
+        }
+        if (refetch == null) {
+          return const ErrorScreen(message: "Something went wrong :(");
+        }
+
+        Map<String, dynamic>? courseRaw = result.data?["me"]?["course"];
+        if (courseRaw == null) {
+          return ChooseCourseScreen(refetch: refetch);
+        }
+        Course course = Course(courseRaw["known"]["code"], courseRaw["learning"]["code"]);
+
+        return CupertinoPageScaffold(
+          navigationBar: const CupertinoNavigationBar(
+            middle: Text(appName),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 300,
+                  child: CupertinoButton.filled(
+                    child: const Text("Start lesson"),
+                    onPressed: () {
+                      Navigator.of(context).push(CupertinoPageRoute(
+                        builder: (context) => LessonScreen(course: course),
+                      ));
+                    },
+                  ),
+                ),
+                const SizedBox(height: 10,),
+                SizedBox(
+                  width: 300,
+                  child: CupertinoButton.filled(
+                    child: const Text("Start listening lesson"),
+                    onPressed: () {
+                      Navigator.of(context).push(CupertinoPageRoute(
+                        builder: (context) => LessonScreen(course: course, audio: true),
+                      ));
+                    },
+                  ),
+                ),
+                const SizedBox(height: 10,),
+                SizedBox(
+                  width: 300,
+                  child: CupertinoButton.filled(
+                    child: const Text("Settings"),
+                    onPressed: () {
+                      Navigator.of(context).push(CupertinoPageRoute(
+                        builder: (context) => ChooseCourseScreen(refetch: refetch, currentId: courseRaw["id"]),
+                      ));
+                    },
+                  ),
+                ),
+                const SizedBox(height: 10,),
+                SizedBox(
+                  width: 300,
+                  child: CupertinoButton.filled(
+                    onPressed: () {logout();},
+                    child: const Text("Logout"),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 10,),
-            SizedBox(
-              width: 300,
-              child: CupertinoButton.filled(
-                child: const Text("Start listening lesson"),
-                onPressed: () {
-                  Navigator.of(context).push(CupertinoPageRoute(
-                    builder: (context) => const LessonScreen(audio: true),
-                  ));
-                },
-              ),
-            ),
-            const SizedBox(height: 10,),
-            SizedBox(
-              width: 300,
-              child: CupertinoButton.filled(
-                onPressed: () {logout();},
-                child: const Text("Logout"),
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      }
     );
   }
 }
@@ -332,5 +385,9 @@ mutation ($username: String!, $password: String!) {
 }
 
 void main() {
-  runApp(const Authentication());
+  runApp(
+    Phoenix(
+      child: const Authentication(),
+    ),
+  );
 }

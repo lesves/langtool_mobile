@@ -66,10 +66,19 @@ List<Task> getQueue(Map<String, dynamic> data) {
   return queue;
 }
 
+class Course {
+  final String known;
+  final String learning;
+
+  const Course(this.known, this.learning);
+}
+
 class LessonScreen extends StatelessWidget {
   final bool audio;
 
-  const LessonScreen({super.key, this.audio = false});
+  final Course course;
+
+  const LessonScreen({super.key, this.audio = false, required this.course});
 
   @override
   Widget build(BuildContext context) {
@@ -88,6 +97,8 @@ class LessonScreen extends StatelessWidget {
             "num_new": numQueue,
             "num_queue": numQueue,
             "audio": audio,
+            "known": audio ? null : course.known,
+            "learning": course.learning
           },
           operationName: "getWords",
         ),
@@ -113,7 +124,7 @@ class LessonScreen extends StatelessWidget {
             navigationBar: const CupertinoNavigationBar(
               middle: Text("Lesson"),
             ),
-            child: LearnWidget(queue: queue, attempt: runMutation)
+            child: LearnWidget(queue: queue, course: course, attempt: runMutation)
           );
         }
       )
@@ -123,11 +134,13 @@ class LessonScreen extends StatelessWidget {
 
 class LearnWidget extends StatefulWidget {
   final List<Task> queue;
+  final Course course;
+
   final TextToSpeech tts = TextToSpeech();
   final AudioPlayer player = AudioPlayer();
   final RunMutation attempt;
 
-  LearnWidget({ super.key, required this.queue, required this.attempt });
+  LearnWidget({ super.key, required this.queue, required this.course, required this.attempt });
 
   @override
   State<LearnWidget> createState() => LearnState();
@@ -164,7 +177,7 @@ class LearnState extends State<LearnWidget> {
       _state = answeredCorrectly ? SubmitState.correct : SubmitState.incorrect;
     });
     if (task().audio == null) {
-      widget.tts.setLanguage("ru");
+      widget.tts.setLanguage(widget.course.learning);
       widget.tts.speak(task().text);
     }
     _results.add(answeredCorrectly);
@@ -192,8 +205,8 @@ class LearnState extends State<LearnWidget> {
       if (_state != SubmitState.inputting) {
         return;
       }
-      final String input = prepare(_controller.text, "ru");
-      final String correct = prepare(task().correct, "ru");
+      final String input = prepare(_controller.text, widget.course.learning);
+      final String correct = prepare(task().correct, widget.course.learning);
 
       if (correct == input) {
         submit(true);
