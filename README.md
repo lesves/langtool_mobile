@@ -1,16 +1,11 @@
 # langtool_mobile
+V této části projektu se nachází klientská část aplikace pro studium jazyků.
 
-A new Flutter project.
+## Struktura
+V souboru `main.dart` se nachází implementace přihlašování a hlavního menu. Soubor `utils.dart` definuje `Widget`y použitelné na vícero místech, např. chybovou obrazovku. V `langs.dart` se nachází chování specifické pro různé jazyky. `lesson.dart` obsahuje nejdůležitější část, tedy vedení lekce a zkoušení slov a vět. V souboru `stats.dart` se nachází zdroj obrazovky se shrnutím úspěšnosti dané lekce. V souborech `gql.dart` a `constants.dart` se nachází konstanty a zdrojové kódy GraphQL dotazů. A nakonec v `choosecourse.dart` se řeší výběr kurzu (jazykového páru).
 
-## Getting Started
+## Spuštění vlastního serveru
+Pro provoz vlastního serveru je prozatím potřeba nastavit v `constants.dart` adresu hlavního GraphQL endpointu.
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Přihlašování
+Po přihlášení se uloží získaný JWT token, který platí cca. měsíc, čímž se vylučuje opakované přihlašování při každém spuštění aplikace.
