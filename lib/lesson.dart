@@ -8,7 +8,6 @@ import 'langs.dart';
 import 'utils.dart';
 import 'gql.dart';
 
-const numQueue = 15;
 
 class Task {
   late String id;

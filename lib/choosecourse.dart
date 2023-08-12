@@ -139,7 +139,7 @@ mutation selectCourse($id: ID!) {
                       CupertinoButton(
                         onPressed: (widget.currentId == null && selected == 0) ? null : () {
                           runMutation({
-                            "id": courses[selected + (widget.currentId == null ? 1 : 0)]["id"]
+                            "id": courses[selected - (widget.currentId == null ? 1 : 0)]["id"]
                           });
                         },
                         child: const Text("Continue")
