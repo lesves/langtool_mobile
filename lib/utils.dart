@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
+import 'package:expandable_text/expandable_text.dart';
 
 
 class LoadingScreen extends StatelessWidget {
@@ -19,9 +20,10 @@ class LoadingScreen extends StatelessWidget {
 }
 
 class ErrorScreen extends StatelessWidget {
-  const ErrorScreen({super.key, required this.message});
+  const ErrorScreen({super.key, required this.userMessage, this.errorMessage});
 
-  final String message;
+  final String userMessage;
+  final String? errorMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -35,14 +37,21 @@ class ErrorScreen extends StatelessWidget {
           child: ListView(
             scrollDirection: Axis.vertical,
             children: [
-              Text(message, style: CupertinoTheme.of(context).textTheme.textStyle),
+              Text(userMessage, style: CupertinoTheme.of(context).textTheme.textStyle),
               CupertinoButton(
                 child: const Text("Reload"), 
                 onPressed: () {
                   Phoenix.rebirth(context);
                 }
-              )
-            ]
+              ),
+            ] + (errorMessage == null ? [] : [
+              ExpandableText(
+                "Debug: $errorMessage",
+                expandText: "show more",
+                collapseText: "hide",
+                linkColor: CupertinoColors.activeBlue,
+              ),
+            ])
           )
         )
       )

@@ -75,7 +75,10 @@ mutation selectCourse($id: ID!) {
             if (result.isLoading) {
               return const LoadingScreen();
             } else if (result.hasException) {
-              return ErrorScreen(message: "Could not load course information. Please check your internet connection.\n\n${result.exception.toString()}");
+              return ErrorScreen(
+                userMessage: "Could not load course information. Please check your internet connection.",
+                errorMessage: result.exception.toString(),
+              );
             }
           }
           List courses = result.data!["courses"];

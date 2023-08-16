@@ -102,16 +102,15 @@ class LessonScreen extends StatelessWidget {
           operationName: "getWords",
         ),
         builder: (result, {fetchMore, refetch}) {
-          if (result.hasException) {
-            return ErrorScreen(message: "Error: ${result.exception.toString()}");
-          }
-
           if (result.isLoading) {
             return const LoadingScreen();
           }
 
-          if (result.data == null) {
-            return const ErrorScreen(message: "Error: Loading failed.");
+          if (result.hasException || result.data == null) {
+            return ErrorScreen(
+              userMessage: "Failed to load lesson data. Please check your internet connection.",
+              errorMessage: result.exception.toString()
+            );
           }
 
           var queue = getQueue(result.data!);

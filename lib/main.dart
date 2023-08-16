@@ -37,11 +37,16 @@ class MainScreen extends StatelessWidget {
           if (result.isLoading) {
             return const LoadingScreen();
           } else if (result.hasException) {
-            return ErrorScreen(message: "Could not load course information. Please check your internet connection.\n\n${result.exception.toString()}");
+            return ErrorScreen(
+              userMessage: "Could not load course information. Please check your internet connection.",
+              errorMessage: result.exception.toString(),
+            );
           }
         }
         if (refetch == null) {
-          return const ErrorScreen(message: "Something went wrong :(");
+          return const ErrorScreen(
+            userMessage: "Something went wrong :(",
+          );
         }
 
         Map<String, dynamic>? courseRaw = result.data?["me"]?["course"];
